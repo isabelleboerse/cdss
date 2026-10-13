@@ -86,6 +86,7 @@ def variabelen_omzetten_numeriek(df):
     return df
 
 def trainset(df):
+    np.random.seed(42)
     train_size = int(2/3 * len(df))
     shuffled_indices = np.random.permutation(len(df))
     train_indices = shuffled_indices[:train_size]
@@ -96,11 +97,11 @@ def trainset(df):
 
 def model_trainen(train):
     nn = MLPClassifier(hidden_layer_sizes=3, max_iter=1000, random_state=42)
-    nn.fit(train.drop(columns='overleving'), train['overleving'])
+    nn.fit(train.drop(columns=['overleving', 'vit_stat', 'vit_stat_int']), train['overleving'])
     return nn
 
 def model_voorspellen(test, nn):
-    p_nn = nn.predict(test.drop('overleving', axis=1))
+    p_nn = nn.predict(test.drop(columns=['overleving', 'vit_stat', 'vit_stat_int']))
     return p_nn
 
 def cf_matrix(p, o, and_print=True):
@@ -132,7 +133,7 @@ def evaluatie(p_nn, test):
     cf_matrix(p_nn_class, test['overleving'])
 
 if __name__ == "__main__":
-    df = pd.read_csv(r"C:\Users\romay\cdss\borstkanker.csv", sep=';')
+    df = pd.read_csv(r"C:\Users\isabe\cdss\borstkanker.csv", sep=';')
     df = maak_uitkomstvariabele(df, jaren=5)
     print(df.columns.tolist())
     print(df.dtypes)
