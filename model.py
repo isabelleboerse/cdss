@@ -82,7 +82,7 @@ def maak_one_hot(df, kolommen):
 def variabelen_omzetten_numeriek(df):
     df.drop(columns='topo', inplace=True)
     df['gesl'] = df['gesl'] - 1
-    df = maak_one_hot(df, ['diag_basis', 'diffgrad','gedrag','her2_stat','dcis_comp','okd','org_chir','dir_reconstr','meta_rt','meta_chir','multifoc','later','morf','ond_lymf','pos_lymf','er_stat','pr_stat','swk','chemo','target','horm','rt','topo_sublok','tumsoort'])
+    df = maak_one_hot(df, ['ct','cn','pt','pn','diag_basis', 'diffgrad','gedrag','her2_stat','dcis_comp','okd','org_chir','dir_reconstr','meta_rt','meta_chir','multifoc','later','morf','ond_lymf','pos_lymf','er_stat','pr_stat','swk','chemo','target','horm','rt','topo_sublok','tumsoort', 'stadium', 'cstadium', 'pstadium', 'uitgebr_chir_code'])
     return df
 
 def trainset(df):
@@ -129,12 +129,13 @@ def cf_matrix(p, o, and_print=True):
 
 def evaluatie(p_nn, test):
     p_nn_class = (p_nn > 0.5).astype(int)
-    cf_matrix(p_nn_class, test['died'])
+    cf_matrix(p_nn_class, test['overleving'])
 
 if __name__ == "__main__":
     df = pd.read_csv(r"C:\Users\romay\cdss\borstkanker.csv", sep=';')
     df = maak_uitkomstvariabele(df, jaren=5)
     print(df.columns.tolist())
+    print(df.dtypes)
     print(df[["vit_stat", "vit_stat_int", "overleving"]].head(10))
     df = verwijderen_missende_waarden(df)
     df = variabelen_omzetten_numeriek(df)
