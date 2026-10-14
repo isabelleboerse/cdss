@@ -52,9 +52,18 @@ def one_hot_encoding(y, num_classes):
 def verwijderen_missende_waarden(df):
     missing_percentages = df.isna().mean() * 100
 
-    # Bekijk missende waarden
-    print("Percentages missings per variabele:")
-    print(missing_percentages)
+    # verander onbekende waarden naar na
+    df['diffgrad'] = df['diffgrad'].replace(9, np.nan)
+    df['her2_stat'] = df['her2_stat'].replace(4, np.nan)
+    df['her2_stat'] = df['her2_stat'].replace(7, np.nan)
+    df['her2_stat'] = df['her2_stat'].replace(9, np.nan)
+    df['multifoc'] = df['multifoc'].replace(9, np.nan)
+    df['ond_lymf'] = df['ond_lymf'].replace(98, np.nan)
+    df['ond_lymf'] = df['ond_lymf'].replace(99, np.nan)
+    df['pos_lymf'] = df['pos_lymf'].replace(99, np.nan)
+    df['er_stat'] = df['er_stat'].replace(9, np.nan)
+    df['pr_stat'] = df['pr_stat'].replace(9, np.nan)
+    df['swk'] = df['swk'].replace(8, np.nan)
 
     # Bepaal kolommen met > 25% missings,
     # maar behoud de uitkomstvariabele
@@ -63,17 +72,19 @@ def verwijderen_missende_waarden(df):
         (missing_percentages.index != "overleving")
     ].index.tolist()
 
-    print("\nVariabelen met > 25% missings:")
-    print(high_missing_vars)
-
     df = df.drop(columns=high_missing_vars)
 
     # Verwijder rijen zonder bekende uitkomst
     df = df.dropna(subset=["overleving"])
 
-    # Verwijder rijen met missings in de overige variabelen
-    
+    # imputeer na met de meest voorkomende waarden
+    # kolommen = df.columns.drop('overleving')
+    # imputer = SimpleImputer(strategy='most_frequent')
+    # df[kolommen] = imputer.fit_transform(df[kolommen])
+
     df = df.dropna()
+
+    # verwijderen van unieke kolommen
     df.drop(columns=['key_nkr'], inplace=True)
     df.drop(columns=['key_eid'], inplace=True)
 
@@ -150,7 +161,7 @@ def evaluatie(p_nn, test):
     cf_matrix(p_nn_class, test['overleving'])
 
 if __name__ == "__main__":
-    df = pd.read_csv(r"C:\Users\romay\cdss\borstkanker.csv", sep=';')
+    df = pd.read_csv(r"C:\Users\isabe\cdss\borstkanker.csv", sep=';')
     df = maak_uitkomstvariabele(df, jaren=5)
     print(df.columns.tolist())
     print(df.dtypes)
@@ -168,4 +179,3 @@ if __name__ == "__main__":
     evaluatie(p_nn, test)
     print(pd.crosstab(df["overleving"], columns="Aantal patiënten"))
     print(df.shape)
-    
