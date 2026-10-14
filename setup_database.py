@@ -10,7 +10,7 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 SQL_FILE = HERE / "database.sql"
-DB_FILE = HERE / "ehr.db"
+DB_FILE = HERE / "breastcancer.db"
 
 with sqlite3.connect(DB_FILE) as conn:
     conn.executescript(SQL_FILE.read_text(encoding="utf-8"))

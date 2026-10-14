@@ -1,6 +1,8 @@
+import joblib
 import numpy as np
 import pandas as pd
 
+from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
@@ -9,226 +11,98 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
-np.random.seed(42)
+BASE_DIR = Path(__file__).parent
+DATA_FILE = Path(r"C:\Users\isabe\cdss\borstkanker.csv")
+MODEL_FILE = BASE_DIR / "breast_cancer_model.joblib"
 
-df = pd.read_csv(r"C:\Users\isabe\cdss\borstkanker.csv", sep=';')
-
-def normalize(x):
-    if min(x) < max(x):
-        z = (x - min(x)) / (max(x) - min(x))
-    elif min(x) == max(x):
-        z = 1
-    return z
-
-def normaliseren_data(df):
-    numerieke_kolommen = df.select_dtypes(include=[np.number]).columns
-    df[numerieke_kolommen] = df[numerieke_kolommen].apply(normalize)
-    print("\nData na normalisatie:")
-    print(df.head())
-    return df
 
 def maak_uitkomstvariabele(df, jaren=5):
-    dagen = jaren * 365.25
-
-    # Nieuwe kolom: onbekend totdat uitkomst vaststaat
     df = df.copy()
-    df["overleving"] = np.nan
-
-    # Overleden vóór de gekozen termijn
-    df.loc[
-        (df["vit_stat"] == 1) &
-        (df["vit_stat_int"] < dagen),
-        "overleving"
-    ] = 0
-
-    # Minstens X jaar overleefd
-    df.loc[
-        (df["vit_stat_int"] >= dagen),
-        "overleving"
-    ] = 1
-
+    dagen = jaren * 365.25
+    df["overleving"] = np.where(
+        df["vit_stat_int"] >= dagen, 1,
+        np.where(df["vit_stat"] == 1, 0, np.nan))
     return df
 
-def one_hot_encoding(y, num_classes):
-    one_hot = np.zeros((len(y), num_classes))
-    one_hot[np.arange(len(y)), y] = 1
-    return one_hot
 
-def verwijderen_missende_waarden(df):
-    missing_percentages = df.isna().mean() * 100
+def voorbereiden_data(df):
+    df = df.copy()
 
-    # Zet gecodeerde missende waarden om naar NaN.
-    # Controleer deze codes aan de hand van het codeboek.
     missing_codes = {
-            "diffgrad": [9],
-            "her2_stat": [4, 7, 9],
-            "multifoc": [9],
-            "ond_lymf": [98, 99],
-            "pos_lymf": [99],
-            "er_stat": [9],
-            "pr_stat": [9],
-            "swk": [8]
-        }
+        "diffgrad": [9], "her2_stat": [4, 7, 9],
+        "multifoc": [9], "ond_lymf": [98, 99],
+        "pos_lymf": [99], "er_stat": [9],
+        "pr_stat": [9], "swk": [8]
+    }
 
-    for kolom, codes in missing_codes.items():
-        if kolom in df.columns:
-            df[kolom] = df[kolom].replace(codes, np.nan)
+    for k, codes in missing_codes.items():
+        if k in df.columns:
+            df[k] = df[k].replace(codes, np.nan)
 
-    # Bepaal kolommen met > 25% missings,
-    # maar behoud de uitkomstvariabele
-    high_missing_vars = missing_percentages[
-        (missing_percentages > 25) &
-        (missing_percentages.index != "overleving")
-    ].index.tolist()
+    missings = df.isna().mean()
+    df = df.drop(columns=[
+        k for k in df.columns
+        if missings[k] > 0.25 and k != "overleving"
+    ])
 
-    df = df.drop(columns=high_missing_vars)
+    return df.dropna(subset=["overleving"]).copy()
 
-    # Verwijder rijen zonder bekende uitkomst
-    df = df.dropna(subset=["overleving"])
-
-    # imputeer na met de meest voorkomende waarden
-    # kolommen = df.columns.drop('overleving')
-    # imputer = SimpleImputer(strategy='most_frequent')
-    # df[kolommen] = imputer.fit_transform(df[kolommen])
-
-    df = df.dropna()
-
-    # verwijderen van unieke kolommen
-    df.drop(columns=['key_nkr'], inplace=True)
-    df.drop(columns=['key_eid'], inplace=True)
-
-    return df
-
-
-# functie om alles over te zetten naar numerieke variabelen
-def maak_one_hot(df, kolommen):
-    for kol in kolommen:
-        Y = df[kol].to_numpy()
-        categorieen = np.unique(Y)
-        Y_num = np.searchsorted(categorieen, Y)
-
-        Y_onehot = one_hot_encoding(Y_num, len(categorieen))
-
-        nieuwe_kolommen = [f"{kol}_{cat}" for cat in categorieen]
-
-        df = df.drop(columns=[kol])
-        df[nieuwe_kolommen] = Y_onehot
-
-    return df
-
-def variabelen_omzetten_numeriek(df):
-    df.drop(columns='topo', inplace=True)
-    df['gesl'] = df['gesl'] - 1
-    df = maak_one_hot(df, ['ct','cn','pt','pn','diag_basis', 'diffgrad','gedrag','her2_stat','dcis_comp','okd','org_chir','dir_reconstr','meta_rt','meta_chir','multifoc','later','morf','ond_lymf','pos_lymf','er_stat','pr_stat','swk','chemo','target','horm','rt','topo_sublok','tumsoort', 'stadium', 'cstadium', 'pstadium', 'uitgebr_chir_code'])
-    return df
 
 def maak_X_y(df):
-    X = df.drop(
-        columns=[
-            "overleving",
-            "vit_stat",
-            "vit_stat_int",
-            "topo"
-        ],
-        errors="ignore"
-    )
-
     y = df["overleving"].astype(int)
 
-    # Categorische variabelen
-    categorical_kandidaten = [
-        "ct", "cn", "pt", "pn", "diag_basis", "diffgrad",
-        "gedrag", "her2_stat", "dcis_comp", "okd",
-        "org_chir", "dir_reconstr", "meta_rt", "meta_chir",
-        "multifoc", "later", "morf", "ond_lymf",
-        "pos_lymf", "er_stat", "pr_stat", "swk",
-        "chemo", "target", "horm", "rt", "topo_sublok",
-        "tumsoort", "stadium", "cstadium", "pstadium",
-        "uitgebr_chir_code"
+    gekozen_variabelen = [
+        "leeft", "diffgrad", "er_stat", "pr_stat",
+        "her2_stat", "pos_lymf", "ct", "cn"
     ]
 
-    categorical = [
-        kolom for kolom in categorical_kandidaten
-        if kolom in X.columns
-    ]
+    X = df[[k for k in gekozen_variabelen if k in df.columns]].copy()
 
-    # Andere tekstkolommen ook als categorisch behandelen
-    for kolom in X.select_dtypes(
-        include=["object", "category", "string"]
-    ).columns:
-        if kolom not in categorical:
-            categorical.append(kolom)
-
-    # Alle overige kenmerken numeriek verwerken
-    numeric = [
-        kolom for kolom in X.columns
-        if kolom not in categorical
-    ]
-
-    print("\nCategorische variabelen:", categorical)
-    print("\nNumerieke variabelen:", numeric)
+    categorical = [k for k in X.columns if k != "leeft"]
+    numeric = [k for k in X.columns if k == "leeft"]
 
     return X, y, categorical, numeric
 
-def trainset(df):
-    np.random.seed(42)
-    train_size = int(2/3 * len(df))
-    shuffled_indices = np.random.permutation(len(df))
-    train_indices = shuffled_indices[:train_size]
-    test_indices = shuffled_indices[train_size:]
-    train = df.iloc[train_indices]
-    test = df.iloc[test_indices]
-    return train, test
+
+def data_splitsen(X, y):
+    X_train, X_temp, y_train, y_temp = train_test_split(
+        X, y, test_size=0.4, random_state=42, stratify=y)
+    X_tune, X_test, y_tune, y_test = train_test_split(
+        X_temp, y_temp, test_size=0.5, random_state=42, stratify=y_temp)
+    return X_train, X_tune, X_test, y_train, y_tune, y_test
+
 
 def pipeline_bouwen(categorical, numeric):
     transformers = []
 
-    # Numerieke variabelen: mediaan imputeren en schalen
     if numeric:
-        transformers.append((
-            "numeric",
-            Pipeline([
-                ("imputer", SimpleImputer(strategy="median")),
-                ("scaler", StandardScaler())
-            ]),
-            numeric
-        ))
+        transformers.append(("numeric", Pipeline([
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler())
+        ]), numeric))
 
-    # Categorische variabelen: meest voorkomende waarde imputeren
-    # en daarna one-hot encoden
     if categorical:
-        transformers.append((
-            "categorical",
-            Pipeline([
-                ("imputer", SimpleImputer(strategy="most_frequent")),
-                ("onehot", OneHotEncoder(handle_unknown="ignore"))
-            ]),
-            categorical
-        ))
+        transformers.append(("categorical", Pipeline([
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("onehot", OneHotEncoder(handle_unknown="ignore"))
+        ]), categorical))
 
-    preprocessor = ColumnTransformer(
-        transformers=transformers,
-        remainder="drop"
-    )
-
-    model = Pipeline([
-        ("preprocess", preprocessor),
+    return Pipeline([
+        ("preprocess", ColumnTransformer(transformers)),
         ("classifier", MLPClassifier(
-            hidden_layer_sizes=(400,),
-            max_iter=1000,
-            random_state=42,
-            early_stopping=True
+            hidden_layer_sizes=(400,), max_iter=1000,
+            random_state=42, early_stopping=True
         ))
     ])
 
-    return model
 
-def model_trainen(model, train):
-    model.fit(train.drop(columns=['overleving', 'vit_stat', 'vit_stat_int']), train['overleving'])
+def model_trainen(model, x_train, y_train):
+    model.fit(x_train, y_train)
 
-def model_voorspellen(test, model):
-    p_nn = model.predict(test.drop(columns=['overleving', 'vit_stat', 'vit_stat_int']))
-    return p_nn
+
+def model_voorspellen(model, x_test):
+    return model.predict(x_test)
+
 
 def cf_matrix(p, o):
     cm = confusion_matrix(o, p, labels=[1, 0])
@@ -249,25 +123,60 @@ def cf_matrix(p, o):
 
     return accuracy
 
-def evaluatie(p_nn, test):
-    p_nn_class = (p_nn > 0.5).astype(int)
-    cf_matrix(p_nn_class, test['overleving'])
+
+
+def model_tunen(X_train, y_train, X_tune, y_tune, categorical, numeric):
+    beste_score = -1
+    beste_model = None
+
+    for neuronen in [50, 100, 200, 400]:
+        for alpha in [0.0001, 0.001, 0.01]:
+            model = pipeline_bouwen(categorical, numeric)
+            model.set_params(
+                classifier__hidden_layer_sizes=(neuronen,),
+                classifier__alpha=alpha
+            )
+            model_trainen(model, X_train, y_train)
+            score = accuracy_score(y_tune, model_voorspellen(model, X_tune))
+
+            if score > beste_score:
+                beste_score, beste_model = score, model
+                beste_instellingen = {"neuronen": neuronen, "alpha": alpha}
+
+    print("Beste tune accuracy:", round(beste_score, 3))
+    print("Beste instellingen:", beste_instellingen)
+    return beste_model
+
+
+def main():
+    df = pd.read_csv(DATA_FILE, sep=";")
+    df = maak_uitkomstvariabele(df, jaren=5)
+    df = voorbereiden_data(df)
+    X, y, categorical, numeric = maak_X_y(df)
+
+    X_train, X_tune, X_test, y_train, y_tune, y_test = data_splitsen(X, y)
+
+    print("Aantal patiënten:", len(df))
+    print("Training:", len(X_train), "| Tune:", len(X_tune), "| Test:", len(X_test))
+
+    model = model_tunen(
+        X_train, y_train, X_tune, y_tune, categorical, numeric
+    )
+
+    X_train_tune = pd.concat([X_train, X_tune])
+    y_train_tune = pd.concat([y_train, y_tune])
+    model_trainen(model, X_train_tune, y_train_tune)
+
+    voorspellingen = model_voorspellen(model, X_test)
+    print("\nTestresultaten:")
+    cf_matrix(voorspellingen, y_test)
+    print(classification_report(
+        y_test, voorspellingen, labels=[0, 1], zero_division=0
+    ))
+
+    joblib.dump(model, MODEL_FILE)
+    print("Model opgeslagen als:", MODEL_FILE)
+
 
 if __name__ == "__main__":
-    df = maak_uitkomstvariabele(df, jaren=5)
-    print(df.columns.tolist())
-    print(df.dtypes)
-    print(df[["vit_stat", "vit_stat_int", "overleving"]].head(10))
-    df = verwijderen_missende_waarden(df)
-    df = variabelen_omzetten_numeriek(df)
-    print(df.shape)
-    print(df.head())
-    df = normaliseren_data(df)
-    train, test = trainset(df)
-    x, y, categorical, numeric = maak_X_y(df)
-    model = pipeline_bouwen(categorical, numeric)
-    model_trainen(model, train)
-    p_nn = model_voorspellen(test, model)
-    evaluatie(p_nn, test)
-    print(pd.crosstab(df["overleving"], columns="Aantal patiënten"))
-    print(df.shape)
+    main()

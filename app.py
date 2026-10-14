@@ -1,121 +1,82 @@
-"""A toy clinical decision support app.
-
-Run:  streamlit run app.py
-
-How Streamlit works, in one sentence: every time the user clicks or types
-something, Streamlit runs this whole script again from top to bottom and
-redraws the page. Things that must survive between runs (like a value the
-user typed) are kept in st.session_state.
-
-This is a technical demo. It is NOT meant to be used for clinical decisions.
-"""
-import sqlite3
-from contextlib import closing
-from pathlib import Path
-
-import numpy as np
+import pandas as pd
 import streamlit as st
-
 import prediction
 
-DB_FILE = Path(__file__).parent / "ehr.db"
+st.set_page_config(page_title="Borstkanker ML-demo")
+st.title("Borstkanker: ML-demo")
+st.caption(
+    "Technische demo voor het voorspellen van vijfjaarsoverleving. "
+    "Niet bedoeld voor klinische beslissingen."
+)
 
-st.set_page_config(page_title="A simple ML demo")
-st.title("A simple ML demo")
-st.caption("Technical demo only. Not intended for clinical decisions.")
-
-# --- 1. Check that the files we need are there ------------------------------
-if not DB_FILE.exists():
-    st.error("ehr.db not found. Run `python setup_database.py` first (see the README).")
-    st.stop()
 if not prediction.MODEL_FILE.exists():
-    st.error("model.keras not found. Train your model and save it as model.keras "
-             "in the same folder as app.py (see the README).")
+    st.error("Model ontbreekt. Voer eerst python model.py uit.")
+    st.stop()
+
+if not prediction.PATIENTS_FILE.exists():
+    st.error("Testpatiënten ontbreken. Voer eerst python model.py uit.")
     st.stop()
 
 
-# --- 2. Load the model (once) and the patients (on every run) ---------------
-@st.cache_resource(max_entries=1)  # load the model only once, not on every click...
-def get_model(file_modified_time):  # ...but again whenever model.keras is replaced
+@st.cache_resource
+def get_model(modified_time):
     return prediction.load_model()
 
 
-def load_patients():
-    """Read all patients from the database, as {id: {column: value}}."""
-    with closing(sqlite3.connect(DB_FILE)) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT * FROM patient ORDER BY id").fetchall()
-    return {row["id"]: dict(row) for row in rows}
+@st.cache_data
+def get_patients(modified_time):
+    return prediction.load_patients()
 
-
-patients = load_patients()
-if not patients:
-    st.warning("The database has no patients. Check database.sql and run setup_database.py.")
-    st.stop()
 
 try:
     model = get_model(prediction.MODEL_FILE.stat().st_mtime)
-except ImportError as error:
-    st.error("TensorFlow is not installed in the Python environment that runs this app. "
-             "Activate your virtual environment and run `pip install -r requirements.txt`. "
-             f"(Error: {error})")
-    st.stop()
+    patients = get_patients(prediction.PATIENTS_FILE.stat().st_mtime)
 except Exception as error:
-    st.error("model.keras exists but could not be loaded. Was it saved with "
-             "`model.save('model.keras')`, using the same TensorFlow version as in "
-             f"requirements.txt? See Troubleshooting in the README. (Error: {error})")
+    st.error(f"Er ging iets mis bij het laden: {error}")
     st.stop()
 
-try:
-    all_inputs = np.vstack([prediction.make_input(p) for p in patients.values()])
-except ValueError as error:
-    st.error(f"Problem with the patient data: {error}")
+if not patients:
+    st.warning("Er zijn geen testpatiënten beschikbaar.")
     st.stop()
 
-problem = prediction.check_model(model, all_inputs)
-if problem:
-    st.error("Your model does not fit this app yet. " + problem)
-    st.stop()
+st.subheader("Selecteer een testpatiënt")
 
-# The blood pressure typed in by the user. None = use the value from the database.
-st.session_state.setdefault("userbp", None)
-
-
-def forget_userbp():
-    st.session_state.userbp = None
-
-
-# --- 3. The page -------------------------------------------------------------
-st.subheader("Patients")
-patient_id = st.radio(
-    "Select a patient",
-    options=list(patients),
-    format_func=lambda pid: patients[pid]["display_name"],
-    on_change=forget_userbp,  # a new patient starts without a typed-in value
+patient_id = st.selectbox(
+    "Patiënt",
+    options=list(patients.keys())
 )
 current_patient = patients[patient_id]
 
-results = st.container()  # filled in below, but shown here, above the form
+try:
+    probability = prediction.get_prediction(model, current_patient)
+except Exception as error:
+    st.error(f"De voorspelling is mislukt: {error}")
+    st.stop()
 
-with st.form("bp_form", clear_on_submit=True):
-    new_bp = st.number_input(
-        "If desired, enter a new blood pressure value here",
-        min_value=1, max_value=400, value=None, step=1,
-        help="Leave empty and press Submit to go back to the value in the database.",
+st.subheader("Modelvoorspelling")
+st.metric(
+    "Voorspelde kans op minstens vijf jaar overleving",
+    f"{probability:.1%}"
+)
+st.caption(
+    "Dit is de kans die het model aan klasse 1 toekent. "
+    "Deze waarde is niet automatisch een betrouwbaar gekalibreerde "
+    "individuele overlevingskans."
+)
+
+with st.expander("Welke gegevens ontvangt het model?"):
+    X_patient = prediction.make_input(current_patient)
+    st.dataframe(
+        X_patient.T.rename(columns={0: "Waarde"}),
+        use_container_width=True
     )
-    if st.form_submit_button("Submit"):
-        st.session_state.userbp = new_bp  # used for this prediction only, not saved
 
-with results:
-    userbp = st.session_state.userbp
-    p = prediction.get_prediction(model, current_patient, userbp)
+with st.expander("Werkelijke uitkomst in de testdata"):
+    outcome = current_patient.get("werkelijke_overleving")
 
-    st.markdown(f"**Current patient:** {current_patient['display_name']}")
-    st.markdown(f"**User-entered blood pressure:** {userbp if userbp is not None else 'none'}")
-    st.metric("Prediction", f"{p:.2f}")
-    st.caption("The model's output, between 0 and 1. Higher means the model thinks "
-               "diabetes is more likely. It is not a calibrated risk.")
-
-    with st.expander("What the model receives"):
-        x = prediction.make_input(current_patient, userbp)[0]
-        st.table({"input": prediction.FEATURES, "value": [float(v) for v in x]})
+    if pd.notna(outcome):
+        st.write("Werkelijke klasse:", int(outcome))
+        st.caption(
+            "Alleen bedoeld om de voorspelling achteraf te vergelijken "
+            "met de bekende uitkomst in deze testdataset."
+        )
