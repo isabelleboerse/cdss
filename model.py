@@ -13,7 +13,7 @@ def normalize(x):
         z = (x - min(x)) / (max(x) - min(x))
     elif min(x) == max(x):
         z = 1
-    return z  
+    return z
 
 def normaliseren_data(df):
     numerieke_kolommen = df.select_dtypes(include=[np.number]).columns
