@@ -5,6 +5,7 @@ import gdown
 import matplotlib.pyplot as plt
 from sklearn.neural_network import MLPClassifier
 
+
 def maak_uitkomstvariabele(df, jaren=5):
     dagen = jaren * 365.25
 
