@@ -5,6 +5,8 @@ import gdown
 import matplotlib.pyplot as plt
 from sklearn.neural_network import MLPClassifier
 
+np.random.seed(42)
+               
 def maak_uitkomstvariabele(df, jaren=5):
     dagen = jaren * 365.25
 
@@ -55,6 +57,7 @@ def verwijderen_missende_waarden(df):
     df = df.dropna(subset=["overleving"])
 
     # Verwijder rijen met missings in de overige variabelen
+    
     df = df.dropna()
     df.drop(columns=['key_nkr'], inplace=True)
     df.drop(columns=['key_eid'], inplace=True)
