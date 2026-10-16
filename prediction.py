@@ -11,6 +11,7 @@ PATIENTS_FILE = BASE_DIR / "breastcancer.db"
 
 FEATURES = [
     "leeft",
+    "gesl",
     "diffgrad",
     "er_stat",
     "pr_stat",

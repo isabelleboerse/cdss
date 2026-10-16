@@ -53,7 +53,7 @@ def maak_X_y(df):
 
     gekozen_variabelen = [
         "leeft", "diffgrad", "er_stat", "pr_stat",
-        "her2_stat", "pos_lymf", "ct", "cn"
+        "her2_stat", "pos_lymf", "ct", "cn", "gesl"
     ]
 
     X = df[[k for k in gekozen_variabelen if k in df.columns]].copy()
@@ -153,6 +153,7 @@ def main():
     df = maak_uitkomstvariabele(df, jaren=5)
     df = voorbereiden_data(df)
     X, y, categorical, numeric = maak_X_y(df)
+    print("Kolommen model:", X.columns.tolist())
 
     X_train, X_tune, X_test, y_train, y_tune, y_test = data_splitsen(X, y)
 
