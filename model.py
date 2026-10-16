@@ -193,6 +193,7 @@ def main():
     joblib.dump(model, MODEL_FILE)
     print("Model opgeslagen als:", MODEL_FILE)
 
+    print(df["gesl"].value_counts())
 
 if __name__ == "__main__":
     main()
