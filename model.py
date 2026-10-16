@@ -12,7 +12,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 BASE_DIR = Path(__file__).parent
-DATA_FILE = Path(r"C:\Users\walid\cdss\borstkanker.csv")
+DATA_FILE = Path(r"C:\Users\isabe\cdss\borstkanker.csv")
 MODEL_FILE = BASE_DIR / "breast_cancer_model.joblib"
 
 
@@ -52,8 +52,23 @@ def maak_X_y(df):
     y = df["overleving"].astype(int)
 
     gekozen_variabelen = [
-        "leeft", "diffgrad", "er_stat", "pr_stat",
-        "her2_stat", "pos_lymf", "ct", "cn", "gesl"
+    "leeft",
+    "gesl",
+    "diffgrad",
+    "er_stat",
+    "pr_stat",
+    "her2_stat",
+    "pos_lymf",
+    "ct",
+    "cn",
+    "morf",
+    "tumorsoort",
+    "okd",
+    "org_chir",
+    "horm",
+    "rt",
+    "meta_rt",
+    "meta_chir"
     ]
 
     X = df[[k for k in gekozen_variabelen if k in df.columns]].copy()

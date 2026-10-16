@@ -19,6 +19,14 @@ FEATURES = [
     "pos_lymf",
     "ct",
     "cn",
+    "morf",
+    "tumorsoort",
+    "okd",
+    "org_chir",
+    "horm",
+    "rt",
+    "meta_rt",
+    "meta_chir"
 ]
 
 
