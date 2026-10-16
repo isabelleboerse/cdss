@@ -12,7 +12,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 BASE_DIR = Path(__file__).parent
-DATA_FILE = Path(r"C:\Users\isabe\cdss\borstkanker.csv")
+DATA_FILE = Path(r"C:\Users\walid\cdss\borstkanker.csv")
 MODEL_FILE = BASE_DIR / "breast_cancer_model.joblib"
 
 
