@@ -5,9 +5,12 @@ import sqlite3
 import joblib
 import pandas as pd
 
+
 BASE_DIR = Path(__file__).parent
+
 MODEL_FILE = BASE_DIR / "breast_cancer_model.joblib"
 PATIENTS_FILE = BASE_DIR / "breastcancer.db"
+
 
 FEATURES = [
     "leeft",
@@ -26,7 +29,7 @@ FEATURES = [
     "horm",
     "rt",
     "meta_rt",
-    "meta_chir"
+    "meta_chir",
 ]
 
 
@@ -47,9 +50,12 @@ def load_patients():
 
     for _, row in df.iterrows():
         patient = row.to_dict()
+
         patient_id = patient["id"]
+
         display_name = patient.get(
-            "display_name", f"Patiënt {patient_id}"
+            "display_name",
+            f"Patiënt {patient_id}",
         )
 
         patients[str(patient_id)] = {
@@ -61,28 +67,74 @@ def load_patients():
     return patients
 
 
-def make_input(patient):
-    """Selecteer uitsluitend de kenmerken die het model verwacht."""
+def make_input(patient, overrides=None):
+    """
+    Maak een DataFrame met de kenmerken die het model verwacht.
+
+    overrides is optioneel en bevat kenmerken die tijdelijk
+    aangepast worden voor een behandelsscenario.
+    """
     ontbrekend = [
-        feature for feature in FEATURES
+        feature
+        for feature in FEATURES
         if feature not in patient
     ]
 
     if ontbrekend:
         raise ValueError(
-            f"Deze kenmerken ontbreken in de database: {ontbrekend}"
+            "Deze kenmerken ontbreken in de database: "
+            f"{ontbrekend}"
         )
 
+    # Kopieer de oorspronkelijke waarden.
+    gegevens = {
+        feature: patient[feature]
+        for feature in FEATURES
+    }
+
+    # Pas uitsluitend de opgegeven kenmerken aan.
+    if overrides is not None:
+        for feature, value in overrides.items():
+
+            if feature not in FEATURES:
+                raise ValueError(
+                    f"Onbekend modelkenmerk: {feature}"
+                )
+
+            gegevens[feature] = value
+
     return pd.DataFrame(
-        [{feature: patient[feature] for feature in FEATURES}],
+        [gegevens],
         columns=FEATURES,
     )
 
 
-def get_prediction(model, patient):
-    """Geef de geschatte kans op klasse 1."""
-    X_patient = make_input(patient)
+def get_prediction(model, patient, overrides=None):
+    """
+    Geef de door het model geschatte kans op klasse 1.
+
+    Zonder overrides:
+        Gebruik de oorspronkelijke patiëntgegevens.
+
+    Met overrides:
+        Gebruik dezelfde patiëntgegevens, maar pas de opgegeven
+        kenmerken tijdelijk aan voor een scenariovergelijking.
+    """
+    X_patient = make_input(
+        patient,
+        overrides=overrides,
+    )
+
     probabilities = model.predict_proba(X_patient)[0]
+
     classes = list(model.classes_)
 
-    return float(probabilities[classes.index(1)])
+    if 1 not in classes:
+        raise ValueError(
+            "Klasse 1 ontbreekt in de klassen van het model. "
+            f"Gevonden klassen: {classes}"
+        )
+
+    return float(
+        probabilities[classes.index(1)]
+    )
