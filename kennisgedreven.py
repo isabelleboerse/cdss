@@ -1,19 +1,20 @@
-
 import streamlit as st
 
+# KENNISBRONNEN
 
-# Kennisbronnen
+
 BRON_NHG = "https://richtlijnen.nhg.org/standaarden/borstkanker"
 
 BRON_ONCOLOGIE = (
-    "https://richtlijnen.nhg.org/files/2021-11/"
-    "nhg-standpunt_oncologische_zorg.pdf"
+    "https://richtlijnen.nhg.org/files/2021-11/nhg-standpunt_oncologische_zorg.pdf"
 )
 
 BRON_THUISARTS = (
-    "https://www.thuisarts.nl/borstkanker/"
-    "behandeld-voor-borstkanker-welke-controles"
+    "https://www.thuisarts.nl/borstkanker/behandeld-voor-borstkanker-welke-controles"
 )
+
+
+# ADVIES AANMAKEN
 
 
 def maak_advies(titel, tekst, prioriteit, bronnen):
@@ -21,62 +22,92 @@ def maak_advies(titel, tekst, prioriteit, bronnen):
         "titel": titel,
         "tekst": tekst,
         "prioriteit": prioriteit,
-        "bronnen": bronnen
+        "bronnen": bronnen,
     }
 
 
-def beoordeel_klachten(gegevens):
+# BESLISMOMENT 2: ACUTE OF VERDACHTE KLACHTEN
+
+
+def beoordeel_acute_klachten(rood_warm_pijnlijk, verdachte_afwijking):
+
     adviezen = []
 
-    # Beslismoment 1 en 2
-    if gegevens["rood_warm_pijnlijk"]:
-        adviezen.append(maak_advies(
-            "Directe medische beoordeling",
-            (
-                "De borst is rood, warm en pijnlijk. "
-                "Beoordeel direct de klinische situatie, "
-                "urgentie en mogelijke oorzaken, "
-                "zoals een ontsteking."
-            ),
-            "hoog",
-            [BRON_THUISARTS, BRON_NHG]
-        ))
+    if rood_warm_pijnlijk:
+        adviezen.append(
+            maak_advies(
+                "Directe medische beoordeling",
+                (
+                    "De borst is rood, warm en pijnlijk. "
+                    "Beoordeel direct de klinische situatie, "
+                    "urgentie en mogelijke oorzaken, "
+                    "zoals een ontsteking."
+                ),
+                "hoog",
+                [BRON_THUISARTS, BRON_NHG],
+            )
+        )
 
-    if gegevens["verdachte_afwijking"]:
-        adviezen.append(maak_advies(
-            "Verdachte borstafwijking",
-            (
-                "Er zijn klinische aanwijzingen voor "
-                "een mogelijk maligne borstafwijking. "
-                "Beoordeel verwijzing naar de mammapoli "
-                "of het behandelend mammateam volgens "
-                "de NHG-Standaard Borstkanker."
-            ),
-            "hoog",
-            [BRON_NHG]
-        ))
+    if verdachte_afwijking:
+        adviezen.append(
+            maak_advies(
+                "Verdachte borstafwijking",
+                (
+                    "Er zijn klinische aanwijzingen voor "
+                    "een mogelijk maligne borstafwijking. "
+                    "Beoordeel verwijzing naar de mammapoli "
+                    "of het behandelend mammateam volgens "
+                    "de NHG-Standaard Borstkanker."
+                ),
+                "hoog",
+                [BRON_NHG],
+            )
+        )
 
-    if (gegevens["nieuwe_klachten"]
-            and not gegevens["verdachte_afwijking"]):
-        adviezen.append(maak_advies(
-            "Nieuwe klachten of veranderingen",
-            (
-                "Voer gerichte anamnese en lichamelijk "
-                "onderzoek uit. Beoordeel of aanvullende "
-                "diagnostiek of overleg met het mammateam "
-                "nodig is. Wacht bij een nieuwe afwijking "
-                "niet automatisch op de volgende controle."
-            ),
-            "middel",
-            [BRON_NHG, BRON_THUISARTS]
-        ))
+    return adviezen
 
-    # Beslismoment 3: lichamelijke klachten
+
+# KENNISGEDREVEN BESLISLOGICA
+
+
+def beoordeel_klachten(gegevens):
+
+    adviezen = beoordeel_acute_klachten(
+        gegevens["rood_warm_pijnlijk"], gegevens["verdachte_afwijking"]
+    )
+
+    # BESLISMOMENT 1: NIEUWE KLACHTEN
+
+    # Voorkomt dubbel algemeen advies wanneer
+    # al een acute of verdachte afwijking is herkend.
+
+    if (
+        gegevens["nieuwe_klachten"]
+        and not gegevens["rood_warm_pijnlijk"]
+        and not gegevens["verdachte_afwijking"]
+    ):
+        adviezen.append(
+            maak_advies(
+                "Nieuwe klachten of veranderingen",
+                (
+                    "Voer gerichte anamnese en lichamelijk "
+                    "onderzoek uit. Beoordeel of aanvullende "
+                    "diagnostiek of overleg met het mammateam "
+                    "nodig is. Wacht bij een nieuwe afwijking "
+                    "niet automatisch op de volgende controle."
+                ),
+                "middel",
+                [BRON_NHG, BRON_THUISARTS],
+            )
+        )
+
+    # BESLISMOMENT 3: LICHAMELIJKE KLACHTEN
+
     if gegevens["lichamelijke_klachten"]:
         klachten = gegevens["typen_lichamelijk"]
 
-        if "Vermoeidheid" in klachten:
-            adviezen.append(maak_advies(
+        lichamelijke_regels = {
+            "Vermoeidheid": (
                 "Aanhoudende vermoeidheid",
                 (
                     "Breng de ernst en invloed op het "
@@ -85,12 +116,9 @@ def beoordeel_klachten(gegevens):
                     "bespreek zelfmanagement, belastbaarheid "
                     "en eventuele oncologische revalidatie."
                 ),
-                "ondersteuning",
-                [BRON_ONCOLOGIE]
-            ))
-
-        if "Langdurige pijn" in klachten:
-            adviezen.append(maak_advies(
+                [BRON_ONCOLOGIE],
+            ),
+            "Langdurige pijn": (
                 "Langdurige pijn",
                 (
                     "Beoordeel de aard, locatie, ernst en "
@@ -98,12 +126,9 @@ def beoordeel_klachten(gegevens):
                     "oorzaken en bespreek passende behandeling "
                     "of gespecialiseerde ondersteuning."
                 ),
-                "ondersteuning",
-                [BRON_ONCOLOGIE]
-            ))
-
-        if "Schouderbeperkingen" in klachten:
-            adviezen.append(maak_advies(
+                [BRON_ONCOLOGIE],
+            ),
+            "Schouderbeperkingen": (
                 "Schouderbeperkingen",
                 (
                     "Beoordeel de bewegingsbeperking en "
@@ -111,12 +136,9 @@ def beoordeel_klachten(gegevens):
                     "Overweeg passende fysiotherapeutische "
                     "begeleiding of oncologische revalidatie."
                 ),
-                "ondersteuning",
-                [BRON_ONCOLOGIE]
-            ))
-
-        if "Zwelling van arm of hand" in klachten:
-            adviezen.append(maak_advies(
+                [BRON_ONCOLOGIE],
+            ),
+            "Zwelling van arm of hand": (
                 "Mogelijk lymfoedeem",
                 (
                     "Beoordeel de zwelling en mogelijke "
@@ -125,12 +147,9 @@ def beoordeel_klachten(gegevens):
                     "fysiotherapie of huidtherapie. "
                     "Sluit andere oorzaken niet automatisch uit."
                 ),
-                "ondersteuning",
-                [BRON_NHG, BRON_ONCOLOGIE]
-            ))
-
-        if "Concentratie- of geheugenproblemen" in klachten:
-            adviezen.append(maak_advies(
+                [BRON_NHG, BRON_ONCOLOGIE],
+            ),
+            "Concentratie- of geheugenproblemen": (
                 "Cognitieve klachten",
                 (
                     "Bespreek concentratie- en "
@@ -139,12 +158,9 @@ def beoordeel_klachten(gegevens):
                     "Beoordeel mogelijke oorzaken en "
                     "de behoefte aan aanvullende begeleiding."
                 ),
-                "ondersteuning",
-                [BRON_ONCOLOGIE]
-            ))
-
-        if "Slaapproblemen" in klachten:
-            adviezen.append(maak_advies(
+                [BRON_ONCOLOGIE],
+            ),
+            "Slaapproblemen": (
                 "Slaapproblemen",
                 (
                     "Breng de aard en duur van de "
@@ -153,12 +169,9 @@ def beoordeel_klachten(gegevens):
                     "of psychosociale klachten. "
                     "Bespreek passende ondersteuning."
                 ),
-                "ondersteuning",
-                [BRON_ONCOLOGIE]
-            ))
-
-        if "Problemen met terugkeer naar werk" in klachten:
-            adviezen.append(maak_advies(
+                [BRON_ONCOLOGIE],
+            ),
+            "Problemen met terugkeer naar werk": (
                 "Werkhervatting",
                 (
                     "Bespreek de mogelijkheden en "
@@ -166,107 +179,117 @@ def beoordeel_klachten(gegevens):
                     "Overweeg afstemming met de bedrijfsarts "
                     "en passende revalidatie of begeleiding."
                 ),
-                "ondersteuning",
-                [BRON_ONCOLOGIE]
-            ))
+                [BRON_ONCOLOGIE],
+            ),
+        }
+
+        for klacht in klachten:
+            if klacht in lichamelijke_regels:
+                titel, tekst, bronnen = lichamelijke_regels[klacht]
+
+                adviezen.append(maak_advies(titel, tekst, "ondersteuning", bronnen))
+
+        # Wel lichamelijke klachten aangegeven,
+        # maar geen specifieke klacht geselecteerd.
 
         if not klachten:
-            adviezen.append(maak_advies(
-                "Lichamelijke klachten beoordelen",
-                (
-                    "Breng de lichamelijke klachten en hun "
-                    "invloed op het dagelijks functioneren "
-                    "verder in kaart. Bespreek welke "
-                    "ondersteuning de patiënt nodig heeft."
-                ),
-                "ondersteuning",
-                [BRON_ONCOLOGIE]
-            ))
+            adviezen.append(
+                maak_advies(
+                    "Lichamelijke klachten beoordelen",
+                    (
+                        "Breng de lichamelijke klachten en hun "
+                        "invloed op het dagelijks functioneren "
+                        "verder in kaart. Bespreek welke "
+                        "ondersteuning de patiënt nodig heeft."
+                    ),
+                    "ondersteuning",
+                    [BRON_ONCOLOGIE],
+                )
+            )
 
-    # Beslismoment 4: psychosociale klachten
+    # BESLISMOMENT 4: PSYCHOSOCIALE KLACHTEN
+
     if gegevens["psychosociale_klachten"]:
-
         klachten = gegevens["typen_psychosociaal"]
 
-        adviezen.append(maak_advies(
-            "Psychosociale ondersteuning",
-            (
-                "Bespreek de aard en ernst van de "
-                "psychosociale klachten, de invloed "
-                "op het dagelijks functioneren en "
-                "de ondersteuningsbehoefte van de patiënt. "
-                "Overweeg begeleiding door de huisarts "
-                "of POH-GGZ, gespecialiseerde psychosociale "
-                "zorg of oncologische revalidatie."
-            ),
-            "ondersteuning",
-            [BRON_ONCOLOGIE]
-        ))
+        # Eén algemeen psychosociaal advies.
+        # Specifieke aanvullingen worden hieraan toegevoegd.
+
+        tekst = (
+            "Bespreek de aard en ernst van de "
+            "psychosociale klachten, de invloed op "
+            "het dagelijks functioneren en de "
+            "ondersteuningsbehoefte van de patiënt. "
+            "Overweeg begeleiding door de huisarts "
+            "of POH-GGZ, gespecialiseerde psychosociale "
+            "zorg of oncologische revalidatie."
+        )
 
         if "Problemen in relaties of sociaal functioneren" in klachten:
-            adviezen.append(maak_advies(
-                "Sociaal functioneren",
-                (
-                    "Bespreek gevolgen voor relaties, "
-                    "gezin en sociaal functioneren. "
-                    "Onderzoek de behoefte aan ondersteuning "
-                    "en betrek waar passend het sociale "
-                    "netwerk of gespecialiseerde hulp."
-                ),
-                "ondersteuning",
-                [BRON_ONCOLOGIE]
-            ))
+            tekst += (
+                " Bespreek daarnaast de gevolgen voor "
+                "relaties, gezin en sociaal functioneren. "
+                "Betrek waar passend het sociale netwerk "
+                "of gespecialiseerde hulp."
+            )
 
         if "Behoefte aan extra begeleiding" in klachten:
-            adviezen.append(maak_advies(
-                "Individueel nazorgplan",
-                (
-                    "Bespreek of een individueel zorgplan "
-                    "wenselijk is. Leg daarin de zorgbehoeften, "
-                    "behandeldoelen, betrokken zorgverleners "
-                    "en afspraken over verdere begeleiding vast. "
-                    "Stem zo nodig af met het oncologisch team."
-                ),
-                "ondersteuning",
-                [BRON_ONCOLOGIE]
-            ))
+            tekst += (
+                " Bespreek of een individueel nazorgplan "
+                "wenselijk is, met daarin de zorgbehoeften, "
+                "behandeldoelen, betrokken zorgverleners "
+                "en afspraken over verdere begeleiding. "
+                "Stem zo nodig af met het oncologisch team."
+            )
+
+        adviezen.append(
+            maak_advies(
+                "Psychosociale ondersteuning", tekst, "ondersteuning", [BRON_ONCOLOGIE]
+            )
+        )
+
+    # GEEN KLACHTEN OF AFWIJKINGEN
 
     if not adviezen:
-        adviezen.append(maak_advies(
-            "Bestaande nazorg voortzetten",
-            (
-                "Er zijn geen klachten geselecteerd "
-                "waarvoor deze beslisboom een aanvullend "
-                "advies geeft. Bespreek het bestaande "
-                "nazorgplan en blijf alert op veranderingen. "
-                "Andere aandoeningen zijn hiermee niet uitgesloten."
-            ),
-            "algemeen",
-            [BRON_NHG, BRON_ONCOLOGIE]
-        ))
+        adviezen.append(
+            maak_advies(
+                "Bestaande nazorg voortzetten",
+                (
+                    "Er zijn geen klachten geselecteerd "
+                    "waarvoor deze beslisboom een aanvullend "
+                    "advies geeft. Bespreek het bestaande "
+                    "nazorgplan en blijf alert op veranderingen. "
+                    "Andere aandoeningen zijn hiermee niet "
+                    "uitgesloten."
+                ),
+                "algemeen",
+                [BRON_NHG, BRON_ONCOLOGIE],
+            )
+        )
 
-    volgorde = {
-        "hoog": 0,
-        "middel": 1,
-        "ondersteuning": 2,
-        "algemeen": 3
-    }
+    # ADVIEZEN SORTEREN OP PRIORITEIT
 
-    adviezen.sort(
-        key=lambda advies: volgorde[advies["prioriteit"]]
-    )
+    volgorde = {"hoog": 0, "middel": 1, "ondersteuning": 2, "algemeen": 3}
+
+    adviezen.sort(key=lambda advies: volgorde[advies["prioriteit"]])
 
     return adviezen
 
 
+# ADVIEZEN TONEN
+
+
 def toon_advies(advies):
+
     titel = advies["titel"]
     tekst = advies["tekst"]
 
     if advies["prioriteit"] == "hoog":
         st.error(f"**{titel}**\n\n{tekst}")
+
     elif advies["prioriteit"] == "middel":
         st.warning(f"**{titel}**\n\n{tekst}")
+
     else:
         st.info(f"**{titel}**\n\n{tekst}")
 
@@ -274,7 +297,11 @@ def toon_advies(advies):
         st.markdown(f"[Bekijk kennisbron {nummer}]({bron})")
 
 
+# STREAMLIT APPLICATIE
+
+
 def kennisgedreven_cdss():
+
     st.header("Kennisgedreven beslisondersteuning")
 
     st.write(
@@ -284,22 +311,28 @@ def kennisgedreven_cdss():
         "hiervoor behandeld zijn."
     )
 
-    # Beslismoment 1
+    # BESLISMOMENT 1
+
     st.subheader("Beslismoment 1")
+
     st.write(
-        "**Zijn er nieuwe klachten of veranderingen "
-        "aan borst, oksel of litteken?**"
+        "**Zijn er nieuwe klachten of veranderingen aan borst, oksel of litteken?**"
     )
 
-    nieuwe_klachten = st.radio(
-        "Nieuwe klachten of veranderingen",
-        ["Nee", "Ja"],
-        horizontal=True,
-        key="nieuwe_klachten"
-    ) == "Ja"
+    nieuwe_klachten = (
+        st.radio(
+            "Nieuwe klachten of veranderingen",
+            ["Nee", "Ja"],
+            horizontal=True,
+            key="nieuwe_klachten",
+        )
+        == "Ja"
+    )
 
-    # Beslismoment 2
+    # BESLISMOMENT 2
+
     st.subheader("Beslismoment 2")
+
     st.write("**Zijn er acute of verdachte klachten?**")
 
     acute_klachten = st.radio(
@@ -308,62 +341,48 @@ def kennisgedreven_cdss():
             "Nee, geen acute of verdachte klachten",
             "Ja, rode, warme en pijnlijke borst",
             "Ja, klinisch verdachte borstafwijking",
-            "Ja, beide bovenstaande klachten"
+            "Ja, beide bovenstaande klachten",
         ],
         index=0,
-        key="acute_klachten"
+        key="acute_klachten",
     )
 
     rood_warm_pijnlijk = acute_klachten in [
         "Ja, rode, warme en pijnlijke borst",
-        "Ja, beide bovenstaande klachten"
+        "Ja, beide bovenstaande klachten",
     ]
 
     verdachte_afwijking = acute_klachten in [
         "Ja, klinisch verdachte borstafwijking",
-        "Ja, beide bovenstaande klachten"
+        "Ja, beide bovenstaande klachten",
     ]
 
-    # Waarschuwing onmiddellijk zichtbaar
-    if rood_warm_pijnlijk:
-        st.error(
-            "DIRECTE MEDISCHE BEOORDELING NODIG.\n\n"
-            "Beoordeel de urgentie en mogelijke "
-            "oorzaken van een rode, warme en "
-            "pijnlijke borst."
-        )
+    # Waarschuwingen direct tonen.
+    # Dezelfde waarschuwingen worden niet opnieuw
+    # getoond bij het genereren van het eindadvies.
 
-        st.markdown(
-            f"[Bekijk de informatie over controles "
-            f"na borstkanker]({BRON_THUISARTS})"
-        )
+    acute_adviezen = beoordeel_acute_klachten(rood_warm_pijnlijk, verdachte_afwijking)
 
-    if verdachte_afwijking:
-        st.warning(
-            "VERDACHTE BORSTAFWIJKING.\n\n"
-            "Beoordeel de noodzaak van verwijzing "
-            "naar de mammapoli of het mammateam "
-            "volgens de NHG-Standaard."
-        )
+    for advies in acute_adviezen:
+        toon_advies(advies)
 
-        st.markdown(
-            f"[Bekijk de NHG-Standaard "
-            f"Borstkanker]({BRON_NHG})"
-        )
+    # BESLISMOMENT 3
 
-    # Beslismoment 3
     st.subheader("Beslismoment 3")
+
     st.write(
-        "**Heeft de patiënt aanhoudende "
-        "lichamelijke klachten na de behandeling?**"
+        "**Heeft de patiënt aanhoudende lichamelijke klachten na de behandeling?**"
     )
 
-    lichamelijke_klachten = st.radio(
-        "Aanhoudende lichamelijke klachten",
-        ["Nee", "Ja"],
-        horizontal=True,
-        key="lichamelijke_klachten"
-    ) == "Ja"
+    lichamelijke_klachten = (
+        st.radio(
+            "Aanhoudende lichamelijke klachten",
+            ["Nee", "Ja"],
+            horizontal=True,
+            key="lichamelijke_klachten",
+        )
+        == "Ja"
+    )
 
     typen_lichamelijk = []
 
@@ -377,24 +396,28 @@ def kennisgedreven_cdss():
                 "Zwelling van arm of hand",
                 "Concentratie- of geheugenproblemen",
                 "Slaapproblemen",
-                "Problemen met terugkeer naar werk"
+                "Problemen met terugkeer naar werk",
             ],
-            key="typen_lichamelijk"
+            key="typen_lichamelijk",
         )
 
-    # Beslismoment 4
+    # BESLISMOMENT 4
+
     st.subheader("Beslismoment 4")
+
     st.write(
-        "**Heeft de patiënt aanhoudende "
-        "psychosociale klachten na de behandeling?**"
+        "**Heeft de patiënt aanhoudende psychosociale klachten na de behandeling?**"
     )
 
-    psychosociale_klachten = st.radio(
-        "Psychosociale klachten",
-        ["Nee", "Ja"],
-        horizontal=True,
-        key="psychosociale_klachten"
-    ) == "Ja"
+    psychosociale_klachten = (
+        st.radio(
+            "Psychosociale klachten",
+            ["Nee", "Ja"],
+            horizontal=True,
+            key="psychosociale_klachten",
+        )
+        == "Ja"
+    )
 
     typen_psychosociaal = []
 
@@ -406,19 +429,16 @@ def kennisgedreven_cdss():
                 "Somberheid",
                 "Problemen met verwerking van de ziekte",
                 "Problemen in relaties of sociaal functioneren",
-                "Behoefte aan extra begeleiding"
+                "Behoefte aan extra begeleiding",
             ],
-            key="typen_psychosociaal"
+            key="typen_psychosociaal",
         )
+
+    # ADVIES GENEREREN
 
     st.divider()
 
-    if st.button(
-        "Genereer richtlijnadvies",
-        type="primary",
-        key="genereer_advies"
-    ):
-
+    if st.button("Genereer richtlijnadvies", type="primary", key="genereer_advies"):
         gegevens = {
             "nieuwe_klachten": nieuwe_klachten,
             "rood_warm_pijnlijk": rood_warm_pijnlijk,
@@ -426,23 +446,44 @@ def kennisgedreven_cdss():
             "lichamelijke_klachten": lichamelijke_klachten,
             "typen_lichamelijk": typen_lichamelijk,
             "psychosociale_klachten": psychosociale_klachten,
-            "typen_psychosociaal": typen_psychosociaal
+            "typen_psychosociaal": typen_psychosociaal,
         }
 
         adviezen = beoordeel_klachten(gegevens)
 
         st.subheader("Richtlijngebaseerde adviezen")
 
-        for advies in adviezen:
-            toon_advies(advies)
+        # Acute waarschuwingen zijn al direct bij
+        # beslismoment 2 getoond.
+        # Daarom hier uitsluitend de overige adviezen.
+
+        overige_adviezen = [
+            advies for advies in adviezen if advies["prioriteit"] != "hoog"
+        ]
+
+        if any(advies["prioriteit"] == "hoog" for advies in adviezen):
+            st.caption(
+                "Het advies bij de acute of verdachte "
+                "bevinding is hierboven al direct getoond. "
+                "Hieronder staan alleen eventuele "
+                "aanvullende adviezen."
+            )
+
+        if overige_adviezen:
+            for advies in overige_adviezen:
+                toon_advies(advies)
+
+        else:
+            st.info(
+                "Er zijn geen aanvullende adviezen naast de waarschuwing hierboven."
+            )
 
         st.caption(
             "Onderwijsprototype. De beslisregels "
             "zijn vereenvoudigde vertalingen van "
             "de kennisbronnen en zijn niet klinisch "
             "gevalideerd. Het NHG-Standpunt "
-            "Oncologische zorg uit 2014 wordt "
-            "uitsluitend als historische achtergrondbron "
+            "Oncologische zorg wordt als achtergrondbron "
             "gebruikt. De klinische besluitvorming "
             "blijft de verantwoordelijkheid van de huisarts."
         )
