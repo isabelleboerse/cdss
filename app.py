@@ -4,6 +4,111 @@ import streamlit as st
 import prediction
 from kennisgedreven import kennisgedreven_cdss
 
+FIELD_LABELS = {
+    "gesl": "Geslacht",
+    "leeft": "Leeftijd bij diagnose (jaar)",
+    "diffgrad": "Tumorgraad (diffgrad)",
+    "er_stat": "ER-status",
+    "pr_stat": "PR-status",
+    "her2_stat": "HER2-status",
+    "pos_lymf": "Aantal positieve lymfeklieren",
+    "ct": "cT (TNM)",
+    "cn": "cN (TNM)",
+    "morf": "Morfologie",
+    "tumorsoort": "Tumorsoort",
+    "okd": "Okselklierdissectie",
+    "org_chir": "Orgaanchirurgie",
+    "horm": "Hormoontherapie",
+    "rt": "Radiotherapie",
+    "meta_rt": "Radiotherapie bij metastasen",
+    "meta_chir": "Chirurgie bij metastasen",
+}
+JA_NEE = {
+    "0": "Nee",
+    "1": "Ja",
+}
+
+VALUE_LABELS = {
+    "gesl": {"1": "Man", "2": "Vrouw"},
+    "tumorsoort": {
+        "501300": "Invasief mammacarcinoom",
+        "502200": "Ductaal carcinoma in situ (DCIS)",
+        "503200": "Lobulair carcinoma in situ (LCIS)",
+    },
+    "okd": JA_NEE,
+    "org_chir": JA_NEE,
+    "horm": JA_NEE,
+    "rt": JA_NEE,
+    "meta_rt": JA_NEE,
+    "meta_chir": JA_NEE,
+    "her2_stat": {
+        "0": "0 — negatief",
+        "1": "1+ — negatief",
+        "3": "3+ — positief",
+    },
+    "diffgrad": {
+        "1": "Graad 1 — goed gedifferentieerd",
+        "2": "Graad 2 — matig gedifferentieerd",
+        "3": "Graad 3 — slecht gedifferentieerd",
+    },
+    "er_stat": {
+        "0": "Negatief",
+        "1": "Positief",
+    },
+    "pr_stat": {
+        "0": "Negatief",
+        "1": "Positief",
+    },
+    "morf": {
+        "8000": "Neoplasma, NNO",
+        "8010": "Carcinoom, NNO",
+        "8050": "Papillair carcinoom, NNO",
+        "8140": "Adenocarcinoom, NNO",
+        "8200": "Adenoïd cysteus carcinoom",
+        "8201": "Cribriform carcinoom",
+        "8211": "Tubulair adenocarcinoom",
+        "8260": "Papillair adenocarcinoom, NNO",
+        "8401": "Apocrien adenocarcinoom",
+        "8480": "Mucineus adenocarcinoom",
+        "8481": "Slijmvormend adenocarcinoom",
+        "8500": "Ductaal carcinoom, NNO",
+        "8501": "Comedocarcinoom, NNO",
+        "8503": "Intraductaal papillair adenocarcinoom",
+        "8504": "Omkapseld (intracysteus) papillair carcinoom",
+        "8507": "Intraductaal micropapillair carcinoom",
+        "8509": "Solide papillair carcinoom",
+        "8510": "Medullair carcinoom, NNO",
+        "8520": "Lobulair carcinoom, NNO",
+        "8521": "Ductulair carcinoom",
+        "8522": "Ductaal en lobulair carcinoom",
+        "8523": "Ductaal carcinoom, gemengd met ander carcinoomtype",
+        "8524": "Lobulair carcinoom gemengd met ander carcinoomtype",
+        "8540": "Morbus Paget van mamma",
+        "8541": "Morbus Paget en infiltrerend ductaal carcinoom",
+        "8543": "Morbus Paget en intraductaal carcinoom (DCIS)",
+        "8575": "Metaplastisch carcinoom, NNO",
+        "8980": "Carcinosarcoom, NNO",
+        "8982": "Myo-epitheliaal carcinoom",
+        "8983": "Maligne adenomyo-epithelioom",
+}
+
+}
+
+def invoer_voor_weergave(modelinvoer):
+    tabel = modelinvoer.T.rename(columns={0: "Waarde"}).copy()
+
+    # Alleen de weergave wordt tekst; de modelinvoer blijft ongewijzigd.
+    tabel["Waarde"] = tabel["Waarde"].map(
+        lambda waarde: "Onbekend" if pd.isna(waarde) else str(waarde)
+    )
+
+    for kenmerk, mapping in VALUE_LABELS.items():
+        if kenmerk in tabel.index:
+            waarde = tabel.loc[kenmerk, "Waarde"]
+            code = waarde.removesuffix(".0")
+            tabel.loc[kenmerk, "Waarde"] = mapping.get(code, waarde)
+
+    return tabel.rename(index=FIELD_LABELS)
 
 st.set_page_config(page_title="Borstkanker ML-demo")
 
@@ -169,9 +274,7 @@ with tab1:
                     st.write("Oorspronkelijke patiëntgegevens")
 
                     st.dataframe(
-                        X_patient.T.rename(
-                            columns={0: "Waarde"}
-                        ),
+                        invoer_voor_weergave(X_patient),
                         use_container_width=True
                     )
 
@@ -188,9 +291,7 @@ with tab1:
                         )
 
                         st.dataframe(
-                            X_behandeling.T.rename(
-                                columns={0: "Waarde"}
-                            ),
+                            invoer_voor_weergave(X_behandeling),
                             use_container_width=True
                         )
 

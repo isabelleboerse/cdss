@@ -8,6 +8,10 @@ BRON_NHG = "https://richtlijnen.nhg.org/standaarden/borstkanker"
 BRON_ONCOLOGIE = (
     "https://richtlijnen.nhg.org/files/2021-11/nhg-standpunt_oncologische_zorg.pdf"
 )
+BRON_NHG_VERMOEIDHEID = (
+    "https://richtlijnen.nhg.org/standaarden/borstkanker"
+    "#volledige-tekst-vermoeidheid"
+)
 
 BRON_THUISARTS = (
     "https://www.thuisarts.nl/borstkanker/behandeld-voor-borstkanker-welke-controles"
@@ -116,7 +120,7 @@ def beoordeel_klachten(gegevens):
                     "bespreek zelfmanagement, belastbaarheid "
                     "en eventuele oncologische revalidatie."
                 ),
-                [BRON_ONCOLOGIE],
+                [BRON_NHG_VERMOEIDHEID],
             ),
             "Langdurige pijn": (
                 "Langdurige pijn",
