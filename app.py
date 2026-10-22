@@ -1,8 +1,8 @@
-
 import pandas as pd
 import streamlit as st
 import prediction
 from kennisgedreven import kennisgedreven_cdss
+
 
 FIELD_LABELS = {
     "gesl": "Geslacht",
@@ -23,6 +23,7 @@ FIELD_LABELS = {
     "meta_rt": "Radiotherapie bij metastasen",
     "meta_chir": "Chirurgie bij metastasen",
 }
+
 JA_NEE = {
     "0": "Nee",
     "1": "Ja",
@@ -90,9 +91,9 @@ VALUE_LABELS = {
         "8980": "Carcinosarcoom, NNO",
         "8982": "Myo-epitheliaal carcinoom",
         "8983": "Maligne adenomyo-epithelioom",
+    },
 }
 
-}
 
 def invoer_voor_weergave(modelinvoer):
     tabel = modelinvoer.T.rename(columns={0: "Waarde"}).copy()
@@ -110,6 +111,7 @@ def invoer_voor_weergave(modelinvoer):
 
     return tabel.rename(index=FIELD_LABELS)
 
+
 st.set_page_config(page_title="Borstkanker ML-demo")
 
 st.title("Borstkanker: ML-demo")
@@ -122,7 +124,6 @@ tab1, tab2 = st.tabs(["Datagedreven", "Kennisgedreven"])
 
 
 with tab1:
-
     if not prediction.MODEL_FILE.exists():
         st.error("Model ontbreekt. Voer eerst python model.py uit.")
         st.stop()
@@ -141,9 +142,7 @@ with tab1:
 
     try:
         model = get_model(prediction.MODEL_FILE.stat().st_mtime)
-        patients = get_patients(
-            prediction.PATIENTS_FILE.stat().st_mtime
-        )
+        patients = get_patients(prediction.PATIENTS_FILE.stat().st_mtime)
 
     except Exception as error:
         st.error(f"Er ging iets mis bij het laden: {error}")
@@ -151,26 +150,23 @@ with tab1:
 
     if not patients:
         st.warning("Er zijn geen testpatiënten beschikbaar.")
+
     else:
         st.subheader("Selecteer een testpatiënt")
 
         patient_id = st.selectbox(
-        "Patiënt",
-        options=list(patients.keys()),
-        format_func=lambda pid: patients[pid]["display_name"],
-        index=None,
-        placeholder="Selecteer een patiënt..."
-    )
+            "Patiënt",
+            options=list(patients.keys()),
+            format_func=lambda pid: patients[pid]["display_name"],
+            index=None,
+            placeholder="Selecteer een patiënt...",
+        )
+
         if patient_id is None:
-            st.info(
-                "Selecteer eerst een patiënt om de "
-                "overlevingskans te bekijken."
-            )
+            st.info("Selecteer eerst een patiënt om de overlevingskans te bekijken.")
 
         else:
             current_patient = patients[patient_id]
-
-            st.subheader("Selecteer een behandeling")
 
             behandelopties = {
                 "Okselklierdissectie": "okd",
@@ -180,38 +176,34 @@ with tab1:
                 "Chirurgie bij metastasen": "meta_chir",
             }
 
-            behandeling = st.selectbox(
-                "Behandeling",
-                options=list(behandelopties.keys()),
-                index=None,
-                placeholder="Selecteer een behandeling..."
-            )
-
             try:
                 # Voorspelling op basis van de oorspronkelijke
                 # patiëntgegevens, zonder aanpassingen.
                 probability_origineel = prediction.get_prediction(
-                    model,
-                    current_patient
+                    model, current_patient
                 )
 
                 st.subheader("Modelvoorspelling")
 
-                col1, col2 = st.columns(2)
+                # De oorspronkelijke voorspelling staat nu
+                # boven de behandelkeuze, met een nieuwe naam.
+                st.metric(
+                    "Vijfjaarsoverleving o.b.v. patiëntgegevens",
+                    f"{probability_origineel:.1%}",
+                )
 
-                with col1:
-                    st.metric(
-                        "Oorspronkelijke patiëntgegevens",
-                        f"{probability_origineel:.1%}"
-                    )
+                # onderdeel verplaatsen
+                # naar onder de oorspronkelijke voorspelling.
+                st.subheader("Selecteer een behandeling")
+
+                behandeling = st.selectbox(
+                    "Behandeling",
+                    options=list(behandelopties.keys()),
+                    index=None,
+                    placeholder="Selecteer een behandeling...",
+                )
 
                 if behandeling is None:
-                    with col2:
-                        st.metric(
-                            "Met gekozen behandeling",
-                            "—"
-                        )
-
                     st.info(
                         "Selecteer een behandeling om de tweede "
                         "voorspelling te berekenen."
@@ -222,29 +214,21 @@ with tab1:
 
                     # Voorlopige aanname: waarde 1 betekent dat
                     # de geselecteerde behandeling wordt toegepast.
-                    overrides = {
-                        gekozen_variabele: 1
-                    }
+                    overrides = {gekozen_variabele: 1}
 
-                    probability_behandeling = (
-                        prediction.get_prediction(
-                            model,
-                            current_patient,
-                            overrides=overrides
-                        )
+                    probability_behandeling = prediction.get_prediction(
+                        model, current_patient, overrides=overrides
                     )
 
-                    verschil = (
-                        probability_behandeling
-                        - probability_origineel
-                    ) * 100
+                    verschil = (probability_behandeling - probability_origineel) * 100
 
-                    with col2:
-                        st.metric(
-                            "Met gekozen behandeling",
-                            f"{probability_behandeling:.1%}",
-                            delta=f"{verschil:+.1f} procentpunt"
-                        )
+                    # De tweede voorspelling staat nu
+                    # onder de behandelkeuze.
+                    st.metric(
+                        "Vijfjaarsoverleving met gekozen behandeling",
+                        f"{probability_behandeling:.1%}",
+                        delta=f"{verschil:+.1f} procentpunt",
+                    )
 
                     st.caption(
                         f"Geselecteerde behandeling: {behandeling}. "
@@ -261,45 +245,70 @@ with tab1:
                 )
 
             except Exception as error:
-                st.error(
-                    f"De voorspelling is mislukt: {error}"
-                )
+                st.error(f"De voorspelling is mislukt: {error}")
 
             with st.expander("Welke gegevens ontvangt het model?"):
                 try:
-                    X_patient = prediction.make_input(
-                        current_patient
-                    )
+                    X_patient = prediction.make_input(current_patient)
 
                     st.write("Oorspronkelijke patiëntgegevens")
 
                     st.dataframe(
-                        invoer_voor_weergave(X_patient),
-                        use_container_width=True
+                        invoer_voor_weergave(X_patient), use_container_width=True
                     )
 
                     if behandeling is not None:
                         X_behandeling = prediction.make_input(
-                            current_patient,
-                            overrides={
-                                gekozen_variabele: 1
-                            }
+                            current_patient, overrides={gekozen_variabele: 1}
                         )
 
-                        st.write(
-                            "Patiëntgegevens met gekozen behandeling"
-                        )
+                        st.write("Patiëntgegevens met gekozen behandeling")
 
-                        st.dataframe(
-                            invoer_voor_weergave(X_behandeling),
-                            use_container_width=True
-                        )
+                        # waarden met elkaar te vergelijken.
+                        originele_tabel = invoer_voor_weergave(X_patient)
+
+                        aangepaste_tabel = invoer_voor_weergave(X_behandeling)
+
+                        label = FIELD_LABELS.get(gekozen_variabele, gekozen_variabele)
+
+                        oud = originele_tabel.loc[label, "Waarde"]
+
+                        nieuw = aangepaste_tabel.loc[label, "Waarde"]
+
+                        # Markeer de gewijzigde rij geel.
+                        # Alleen als de waarde echt veranderd is.
+                        if oud != nieuw:
+                            gemarkeerde_tabel = aangepaste_tabel.style.apply(
+                                lambda row: [
+                                    "background-color: #FFF3B0; color: #000000"
+                                    if row.name == label
+                                    else ""
+                                    for _ in row
+                                ],
+                                axis=1,
+                            )
+
+                            st.dataframe(gemarkeerde_tabel, use_container_width=True)
+
+                            # NIEUW 6:
+                            # Toon expliciet wat veranderd is.
+                            st.info(
+                                f"**Gewijzigde variabele:** {label}: {oud} → {nieuw}"
+                            )
+
+                        else:
+                            # Geen highlight als de behandeling
+                            # al in de oorspronkelijke data stond.
+                            st.dataframe(aangepaste_tabel, use_container_width=True)
+
+                            st.info(
+                                f"{label} stond al op {nieuw}. "
+                                "Er zijn geen patiëntgegevens gewijzigd."
+                            )
 
                 except Exception as error:
-                    st.error(
-                        f"De modelinvoer kon niet worden getoond: "
-                        f"{error}"
-                    )
+                    st.error(f"De modelinvoer kon niet worden getoond: {error}")
+
 
 with tab2:
     kennisgedreven_cdss()
