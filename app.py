@@ -106,6 +106,7 @@ VALUE_LABELS = {
         "3": "Ja, zowel pre- als postchirurgisch",
         "4": "Ja, geen chirurgie",
     },
+}
 
 
 
