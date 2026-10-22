@@ -92,7 +92,21 @@ VALUE_LABELS = {
         "8982": "Myo-epitheliaal carcinoom",
         "8983": "Maligne adenomyo-epithelioom",
     },
-}
+    "horm": {
+        "0": "Nee",
+        "1": "Ja, alleen prechirurgisch",
+        "2": "Ja, alleen postchirurgisch",
+        "3": "Ja, zowel pre- als postchirurgisch",
+        "4": "Ja, geen chirugie",
+    },
+    "rt": {
+        "0": "Nee",
+        "1": "Ja, alleen prechirurgisch",
+        "2": "Ja, alleen postchirurgisch",
+        "3": "Ja, zowel pre- als postchirurgisch",
+        "4": "Ja, geen chirurgie",
+    },
+
 
 
 def invoer_voor_weergave(modelinvoer):
