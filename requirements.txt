@@ -1,2 +1,1 @@
 streamlit>=1.37
-tensorflow>=2.16
